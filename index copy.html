@@ -1,0 +1,849 @@
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <title>Zillow Pittsburgh</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+      <!-- Data Visualization library -->
+      <script src="https://d3js.org/d3.v7.min.js"></script>
+      <!-- topojason graphs -->
+      <script src="https://d3js.org/topojson.v3.min.js"></script>
+      <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: "Cousine", monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            width: 80%;
+            height: auto;
+            margin: auto;
+        }
+
+        text, label {
+            font-family: "Cousine", monospace;
+        }
+
+        h1 {
+            font-family: "Instrument Serif", serif;
+            font-style: normal;
+            text-align: center;
+            font-size: 30px;
+            margin: 20px 0;
+        }
+
+        h2, h3 {
+            font-family: "Instrument Serif", serif;
+        }
+
+        .gridlines line {
+            stroke: #bbb;
+        }
+
+        .gridlines .domain {
+            stroke: none;
+        }
+
+        .border {
+            stroke: #333;
+            fill: none;
+        }
+
+        .neighborhood {
+            fill: lightgrey;
+            stroke: white;
+            stroke-width: 1px;
+        }
+
+        .main-container {
+            display: flex;
+            width: 90%;
+            margin-top: 20px;
+        }
+
+        /* two diff views */
+        #choropleth {
+            width: 1000px;
+            max-width: 100%;
+            max-height: 2000px;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+
+        #list-container {
+            width: 960px;
+            height: auto;
+            overflow-y: auto;
+            /* background: #222; */
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        #dashboard {
+            display: flex;
+            align-items: flex-start;
+            width: 100%;
+            gap: 50px;
+            justify-content: center;
+            margin-bottom: 50px;
+            flex-shrink: 0;
+        }
+
+        #side-data {
+            width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .filter-container, #dashboard {
+            max-width: 2000px; 
+            width: 100%;
+            margin: 0 auto; 
+        }
+
+
+        #choropleth, #list-container {
+            flex-shrink: 0; 
+            max-width: 100%;
+        }
+
+        .list-item {
+            width: 50px;
+            height: 50px;
+        }
+
+        .list-item img {
+            width: 100%;
+            height: auto;
+        }
+
+        .filter-container {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            padding-bottom: 24px;
+        }
+
+        .filter-group select {
+            width: 120px;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        .label {
+          padding-bottom: 10px;
+        }
+        #price-brush {
+            width: 250px;
+            height: 60px;
+            background: rgb(30, 30, 30);
+            border: 2px solid white;
+            border-radius: 10px;
+            padding-top: 5px;
+        }
+
+        .brush rect.selection {
+            fill: rgba(0, 255, 0, 0.3);
+            stroke: white;
+            stroke-width: 1px;
+        }
+
+        #homeTypeButtons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-family: "Cousine", monospace;
+        }
+
+        button {
+            font-family: "Cousine", monospace;
+            font-size: 16px;
+        }
+
+        .home-type-btn {
+            background: transparent;
+            border: none;
+            padding: 0;
+            width: 100px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .home-type-btn img {
+            width: 60px;
+            height: auto;
+            margin-bottom: 5px;
+        }
+
+        .home-type-btn.selected {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        select {
+            appearance: none;
+            background: black;
+            color: white;
+            border: 2px solid white;
+            border-radius: 10px;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 150px;
+            text-align: left;
+        }
+
+        #bedFilter, #bathFilter {
+            font-size: 14px;
+            font-family: "Cousine", monospace;
+        }
+
+        select::after {
+            content: "▼";
+            position: absolute;
+            right: 15px;
+            pointer-events: none;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #888;
+        }
+        .row {
+            
+            display: flex;
+            align-items: flex-start;
+            width: 100%;
+            gap: 30px;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .hist-bar {
+            pointer-events: none;
+        }
+
+        /* toggle */
+        .toggle-container {
+        display: flex;
+        align-items: center; 
+        gap: 10px; 
+        justify-content: flex-start; 
+        width: 100%; 
+        }
+
+        .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+        }
+
+        .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        }
+
+        .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+        border-radius: 34px;
+        }
+
+        .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+        }
+
+        input:checked + .slider {
+        background-color: #4EC58C;
+        }
+
+        input:checked + .slider:before {
+        transform: translateX(26px);
+        }
+
+      </style>
+  </head>
+  <body>
+      <h1>
+        Find the Perfect Living Space in Pittsburgh!
+      </h1>
+
+          <div class="filter-container">
+            <div class="row">
+              <div class="col">
+                <h3>Configuration</h3>
+                <div class="row">
+                
+                <div class="filter-group">
+                  <div class="label"><label>Selling $$</label></div>
+                  <svg id="price-brush" width="300" height="80" viewBox="0 0 300 80"></svg>
+                </div>
+
+                <div class="filter-group">
+                    <div class="label"><label>Beds</label></div>
+                    <select id="bedFilter">
+                        <option value="">Any</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                    </select>
+                </div>
+            
+                <div class="filter-group">
+                    <div class="label"><label>Baths</label></div>
+                    <select id="bathFilter">
+                        <option value="">Any</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                    </select>
+                </div>
+              </div>
+            </div>  
+
+            <div class="col">
+              <h3>Home Type</h3>
+              <div class="filter-group">
+                  <div id="homeTypeButtons">
+                      <button class="home-type-btn" data-type="SingleFamily">
+                          <img src="images/singlefam.svg" alt="Single Family">
+                          Single Family
+                      </button>
+                      <button class="home-type-btn" data-type="MultiFamily2To4">
+                          <img src="images/multifam.svg" alt="Multi Family">
+                          Multi Family
+                      </button>
+                      <button class="home-type-btn" data-type="Townhouse">
+                          <img src="images/townhouse.svg" alt="Townhouse">
+                          Townhouse
+                      </button>
+                      <button class="home-type-btn" data-type="Condominium">
+                          <img src="images/condo.svg" alt="Condo">
+                          Condo
+                      </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>   
+          
+        
+        <div id="dashboard">
+          <svg id="choropleth" height="800" width="1000" style="background: rgb(255, 255, 255); margin-top:0px"></svg>
+          <div id="list-container" width="1000" style="display: none;"></div>
+          <div class="side-data" >
+            <div>
+            <div class="toggle-container">
+                <label class="switch">
+                <input type="checkbox" id="toggle-view">
+                <span class="slider round"></span>
+                </label>
+                <span id="toggle-label">Show List View</span>
+            </div>
+              <h2>Home Details</h2>
+              <p><strong>Address:</strong> <span id="deep-address">-</span></p>
+              <p><strong>Price:</strong> <span id="deep-price">-</span></p>
+              <p><strong>Home Type:</strong> <span id="deep-type">-</span></p>
+              <p><strong>Year Built:</strong> <span id="deep-year">-</span></p>
+              <p><strong>Beds:</strong> <span id="deep-beds">-</span></p>
+              <p><strong>Baths:</strong> <span id="deep-baths">-</span></p>
+              <button id="reset-btn" style="margin-top: 10px;">Reset Filters</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- <div class="side-data">
+          <h2>Home Details</h2>
+          <p><strong>Address:</strong> <span id="deep-address">-</span></p>
+          <p><strong>Price:</strong> <span id="deep-price">-</span></p>
+          <p><strong>Home Type:</strong> <span id="deep-type">-</span></p>
+          <p><strong>Year Built:</strong> <span id="deep-year">-</span></p>
+          <p><strong>Beds:</strong> <span id="deep-beds">-</span></p>
+          <p><strong>Baths:</strong> <span id="deep-baths">-</span></p>
+        </div> -->
+      <script>
+    //       d3.select("#toggle-view").on("click", function() {
+    //       let choropleth = d3.select("#choropleth");
+    //       let listContainer = d3.select("#list-container");
+    //       let button = d3.select(this);
+
+    //       if (choropleth.style("display") !== "none") {
+    //           choropleth.style("display", "none");
+    //           listContainer.style("display", "flex");
+    //           button.text("Show Map View");
+    //       } else {
+    //           choropleth.style("display", "block");
+    //           listContainer.style("display", "none");
+    //           button.text("Show List View");
+    //       }
+    //   });
+    document.getElementById("toggle-view").addEventListener("change", function() {
+    let choropleth = document.getElementById("choropleth");
+    let listContainer = document.getElementById("list-container");
+    let label = document.getElementById("toggle-label");
+
+    if (this.checked) {
+        choropleth.style.display = "none";
+        listContainer.style.display = "flex";
+        label.innerText = "Show Map View";
+    } else {
+        choropleth.style.display = "block";
+        listContainer.style.display = "none";
+        label.innerText = "Show List View";
+    }
+});
+
+      </script>
+      <script>
+          const homeTypeIcons = {
+            "SingleFamily": "images/singlefam.svg",
+            "MultiFamily2To4": "images/multifam.svg",
+            "Townhouse": "images/townhouse.svg",
+            "Condominium": "images/condo.svg"
+          };
+
+          const homeTypeColors = d3.scaleOrdinal()
+            .domain(["SingleFamily", "MultiFamily2To4", "Townhouse", "Condominium"])
+            .range(["#4EC58C", "#3197CD", "#F5CA7D", "#F8957B"]); // Customize colors
+
+          const choropleth = d3.select("#choropleth");
+          const mapWidth = choropleth.attr("width")  ;
+          const mapHeight = choropleth.attr("height") - 40 ;
+          const mapMargin = { top: 20, right: 20, bottom: 20, left: 20};
+          const mapAreaWidth = mapWidth - mapMargin.left - mapMargin.right;
+          const mapAreaHeight = mapHeight - mapMargin.top - mapMargin.bottom;
+          const map = choropleth.append("g")
+          .attr("transform","translate("+mapMargin.left+","+mapMargin.top+")");;
+
+          // instantiated variables            
+          let houseData = []; 
+          let pittsburghGeoJSON = null;
+          const selectedHomeTypes = new Set(); 
+          let minPrice = null, maxPrice = null; // brush stuff - when user interacts w brush
+          let xPriceScale = null;
+          let activePoint = null;
+
+          const updateDeepDive = (home) => {
+            document.getElementById("deep-address").innerText = home["Street Address"] || "N/A";
+            document.getElementById("deep-price").innerText = home["Sale Amount"] ? `$${home["Sale Amount"]}` : "N/A";
+            document.getElementById("deep-type").innerText = home["Property Type"] || "N/A";
+            document.getElementById("deep-year").innerText = home["Year Built"]|| "N/A";
+            document.getElementById("deep-beds").innerText = home.Bedrooms || "N/A";
+            document.getElementById("deep-baths").innerText = home.Bathroom || "N/A";
+          };
+
+          // more brush stuff
+          const pBrushsvg = d3.select("#price-brush"); 
+          const brushWidth = 280;
+          const brushHeight = 40; 
+
+          function brushed({ selection }) {
+            if (!selection) return;
+
+            // project user input to prices
+            [minPrice, maxPrice] = selection.map(xPriceScale.invert);
+            //console.log(`Selected price range: ${minPrice} - ${maxPrice}`);
+
+            applyFilters();
+          };
+
+
+          const loadData = async function() {
+            houseData = (await d3.csv("zillow_pittsburgh.csv"))
+                .filter(d => d.Neighborhood !== "Avalon")
+                .filter(d => d.Neighborhood !== "Oakwood");
+
+
+            await loadMap(houseData); // Run loadMap only after data is ready
+            loadHomes(houseData);
+
+            const priceExtent = d3.extent(houseData, d => +d["Sale Amount"]); 
+
+            // scale for brush filter
+            xPriceScale = d3.scaleLinear()
+                .domain(priceExtent)
+                .range([0, brushWidth]);
+
+            // dynamic histogram in the background
+            const histogram = d3.histogram()
+                .value(d => +d["Sale Amount"])
+                .domain(priceExtent)
+                .thresholds(xPriceScale.ticks(20)); 
+            const bins = histogram(houseData);
+
+            // histogram only upwards 
+            const yHistScale = d3.scaleLinear()
+                .domain([0, d3.max(bins, d => d.length)]) 
+                .range([brushHeight, 0]);
+
+            pBrushsvg.selectAll(".hist-bar")
+                .data(bins)
+                .enter().append("rect")
+                .attr("class", "hist-bar")
+                .attr("x", d => xPriceScale(d.x0) + 10)
+                .attr("width", d => xPriceScale(d.x1) - xPriceScale(d.x0) - 1) // Adjust width
+                .attr("y", d => yHistScale(d.length) + 5) 
+                .attr("height", d => brushHeight - yHistScale(d.length))
+                .attr("fill", "gray")
+                .attr("opacity", 0.4);    
+
+            // brush object only sideways
+            const brush = d3.brushX()
+                .extent([[0, 0], [brushWidth, brushHeight]])
+                .on("end", brushed);
+
+            // put into container
+            const brushGroup = pBrushsvg.append("g")
+                .attr("class", "brush")
+                .attr("transform", "translate(10,10)") 
+                .call(brush);
+
+            // axis tag 
+            const xAxisPrice = d3.axisBottom(xPriceScale)
+                .ticks(5)
+                .tickFormat(d3.format("$,.0f"));
+
+            pBrushsvg.append("g")
+                .attr("transform", "translate(10,50)") 
+                .call(xAxisPrice);  
+
+          };
+
+          const getFilteredData = () => {
+            const minBeds = +document.getElementById("bedFilter").value || 0;
+            const minBaths = +document.getElementById("bathFilter").value || 0;
+
+            // First, filter data by dropdowns and home type (before applying price filter)
+            let filteredData = houseData.filter(d => {
+                const bedMatch = +d["Bedrooms"] >= minBeds;
+                const bathMatch = +d["Bathroom"] >= minBaths;
+                const typeMatch = selectedHomeTypes.size === 0 || selectedHomeTypes.has(d["Property Type"]);
+                return bedMatch && bathMatch && typeMatch;
+            });
+
+            console.log(`Filtered homes (before price brush) = ${filteredData.length}`);
+
+            // Apply price filter (if a range is selected in the brush)
+            filteredData = filteredData.filter(d => {
+                return (!minPrice || !maxPrice) || (+d["Sale Amount"] >= minPrice && +d["Sale Amount"] <= maxPrice);
+            });
+
+            console.log(`Filtered homes (after price brush) = ${filteredData.length}`);
+
+            return filteredData;
+        };
+
+        const applyFilters = () => {
+            const filteredData = getFilteredData();
+            // feedback change: order icons by sales amt
+            filteredData.sort((a, b) => d3.ascending(+a["Sale Amount"], +b["Sale Amount"])); 
+            
+            updateList(filteredData);
+            updateMap(filteredData);
+            updateHistogram();
+        };
+
+        const loadHomes = async () => {
+            const houseData = await d3.csv("zillow_pittsburgh.csv");
+
+            // feedback change: order icons by sales amt
+            houseData.sort((a, b) => d3.ascending(+a["Sale Amount"], +b["Sale Amount"])); 
+
+            const homeList = d3.select("#list-container");
+
+            homeList.selectAll(".list-item")
+                .data(houseData)
+                .join("div")
+                .attr("class", "list-item")
+                .on("click", (event, d) => updateDeepDive(d)) // Add click event
+                .html(d => {
+                    const icon = homeTypeIcons[d["Property Type"]] || "default.svg";
+                    return `<img src="${icon}" alt="${d.Type}">`;
+                });
+        };
+
+        const loadMap = async function() {
+            if (houseData.length === 0) {
+                return;
+            }
+            // check how many unique neighborhoods there are: 57
+            // const uniqueNeighborhoods = new Set(houseData.map(point => point.Neighborhood));
+
+            pittsburghGeoJSON = await d3.json("pittsburgh.geojson");
+            var neigh = pittsburghGeoJSON.features;
+
+            var projection = d3.geoMercator().fitSize([mapWidth, mapHeight], { type: "FeatureCollection", features: neigh });
+            var path = d3.geoPath().projection(projection);
+          
+            map.selectAll("path.neighborhood").data(neigh)
+                .join("path")
+                .attr("class", "neighborhood")
+                .attr("d", path);
+
+
+            map.selectAll("circle").data(houseData)
+                .join("circle")
+                .attr("class", "circle")
+                .attr("cx", d => projection([+d.Longitude, +d.Latitude])[0])
+                .attr("cy", d => projection([+d.Longitude, +d.Latitude])[1])
+                .attr("r", 4)
+                .attr("fill", d => homeTypeColors(d["Property Type"]) || "#ccc") 
+                .attr("opacity", 0.7)
+                .attr("stroke", "black")
+                .attr("stroke-width", 0.5)
+                .on("mouseover", function(event, d) {  
+                      if (this !== activePoint) {  
+                          d3.select(this)
+                              .attr("r", 6)
+                              .attr("stroke-width", 2)
+                              .attr("opacity", 1);
+                      }
+                  })
+                  .on("mouseout", function(event, d) {  
+                      if (this !== activePoint) {
+                          d3.select(this)
+                              .attr("r", 4)
+                              .attr("stroke-width", 0.5)
+                              .attr("opacity", 0.7);
+                      }
+                  })
+                  .on("click", function(event, d) {  
+                      if (activePoint) {
+                          d3.select(activePoint)
+                              .attr("r", 4)
+                              .attr("stroke-width", 0.5)
+                              .attr("opacity", 0.7);
+                      }
+                      activePoint = this;
+
+                      d3.select(this)
+                          .attr("r", 7)
+                          .attr("stroke-width", 3)
+                          .attr("opacity", 1);
+
+                      updateDeepDive(d);
+                  });
+
+        };
+
+        // Function to update the list dynamically
+        const updateList = (data) => {
+          const homeList = d3.select("#list-container");
+
+          homeList.selectAll(".list-item")
+              .data(data)
+              .join("div")
+              .attr("class", "list-item")
+              .on("click", (event, d) => updateDeepDive(d)) // Add click event
+              .html(d => {
+                  const icon = homeTypeIcons[d["Property Type"]] || "default.svg";
+                  return `<img src="${icon}" alt="${d.Type}">`;
+                });
+        };
+
+        // dynamic histogram after any filter changes
+        const updateHistogram = () => {
+          let dropdownFilteredData = houseData.filter(d => {
+              const minBeds = +document.getElementById("bedFilter").value || 0;
+              const minBaths = +document.getElementById("bathFilter").value || 0;
+              const bedMatch = +d["Bedrooms"] >= minBeds;
+              const bathMatch = +d["Bathroom"] >= minBaths;
+              const typeMatch = selectedHomeTypes.size === 0 || selectedHomeTypes.has(d["Property Type"]);
+              return bedMatch && bathMatch && typeMatch;
+          });
+
+          const histogram = d3.histogram()
+              .value(d => +d["Sale Amount"])
+              .domain(xPriceScale.domain()) 
+              .thresholds(xPriceScale.ticks(20)); 
+
+          const bins = histogram(dropdownFilteredData);
+
+          const yHistScale = d3.scaleLinear()
+              .domain([0, d3.max(bins, d => d.length) || 1]) 
+              .range([brushHeight, 0]);
+
+          const bars = pBrushsvg.selectAll(".hist-bar")
+              .data(bins);
+
+          bars.transition().duration(500)
+              .attr("x", d => xPriceScale(d.x0) + 10)
+              .attr("width", d => xPriceScale(d.x1) - xPriceScale(d.x0) - 1)
+              .attr("y", d => yHistScale(d.length) + 5)
+              .attr("height", d => brushHeight - yHistScale(d.length))
+              .attr("fill", "gray") 
+              .attr("opacity", 0.4); 
+
+          bars.enter().append("rect")
+              .attr("class", "hist-bar")
+              .attr("x", d => xPriceScale(d.x0) + 10)
+              .attr("width", d => xPriceScale(d.x1) - xPriceScale(d.x0) - 1)
+              .attr("y", d => yHistScale(d.length))
+              .attr("height", d => brushHeight - yHistScale(d.length))
+              .attr("fill", "gray")
+              .attr("opacity", 0.4);
+
+          // prevent dupes
+          bars.exit().remove();
+        };
+
+
+        // Function to update map
+        const updateMap = async (data) => {
+          var neigh = pittsburghGeoJSON.features;
+
+          var projection = d3.geoMercator().fitSize([mapWidth, mapHeight], { type: "FeatureCollection", features: neigh });
+          var path = d3.geoPath().projection(projection);
+        
+          map.selectAll("path.neighborhood").data(neigh)
+              .join("path")
+              .attr("class", "neighborhood")
+              .attr("d", path);
+
+          map.selectAll("circle").data(data)
+              .join("circle")
+              .attr("class", "circle")
+              .attr("cx", d => projection([+d.Longitude, +d.Latitude])[0])
+              .attr("cy", d => projection([+d.Longitude, +d.Latitude])[1])
+              .attr("r", 4)
+              .attr("fill", d => homeTypeColors(d["Property Type"]) || "#ccc") 
+              .attr("opacity", 0.7)
+              .attr("stroke", "black")
+              .attr("stroke-width", 0.5)
+              .on("mouseover", function(event, d) {  
+                      if (this !== activePoint) {  
+                          d3.select(this)
+                              .attr("r", 6)
+                              .attr("stroke-width", 2)
+                              .attr("opacity", 1);
+                      }
+                  })
+                  .on("mouseout", function(event, d) {  
+                      if (this !== activePoint) {
+                          d3.select(this)
+                              .attr("r", 4)
+                              .attr("stroke-width", 0.5)
+                              .attr("opacity", 0.7);
+                      }
+                  })
+                  .on("click", function(event, d) {
+                      if (activePoint) {
+                          d3.select(activePoint)
+                              .attr("r", 4)
+                              .attr("stroke-width", 0.5)
+                              .attr("opacity", 0.7);
+                      }
+                      activePoint = this;
+
+                      d3.select(this)
+                          .attr("r", 7)
+                          .attr("stroke-width", 3)
+                          .attr("opacity", 1);
+
+                      updateDeepDive(d);
+                  }),
+              update => update,
+              exit => exit.remove() ;
+        };
+        loadData();
+        document.getElementById("bedFilter").addEventListener("change", applyFilters);
+        document.getElementById("bathFilter").addEventListener("change", applyFilters);
+
+        document.querySelectorAll(".home-type-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const type = btn.dataset.type;
+
+                if (selectedHomeTypes.has(type)) {
+                    selectedHomeTypes.delete(type);  // Deselect
+                    btn.classList.remove("selected");
+                } else {
+                    selectedHomeTypes.add(type);  // Select
+                    btn.classList.add("selected");
+                }
+
+                applyFilters();
+            });
+        });
+
+        document.getElementById("reset-btn").addEventListener("click", function() {
+          if (activePoint) {
+              d3.select(activePoint)
+                  .attr("r", 3)
+                  .attr("stroke-width", 0.5)
+                  .attr("opacity", 0.7);
+              activePoint = null;
+          }
+
+          document.getElementById("deep-address").innerText = "-";
+          document.getElementById("deep-price").innerText = "-";
+          document.getElementById("deep-type").innerText = "-";
+          document.getElementById("deep-year").innerText = "-";
+          document.getElementById("deep-beds").innerText = "-";
+          document.getElementById("deep-baths").innerText = "-";
+
+        // Reset dropdown filters
+        document.getElementById("bedFilter").value = "";
+        document.getElementById("bathFilter").value = "";
+
+        // Reset home type selection
+        selectedHomeTypes.clear();
+        document.querySelectorAll(".home-type-btn").forEach(btn => {
+            btn.classList.remove("selected");
+        });
+
+        // Reset price brush selection
+        const brushGroup = d3.select("#price-brush .brush");
+        if (brushGroup) {
+            brushGroup.call(d3.brushX().clear);
+            minPrice = null;
+            maxPrice = null;
+        }
+
+        // Apply filters with all reset
+        applyFilters();
+      });
+
+      </script>
+  </body>
+  </html>
+

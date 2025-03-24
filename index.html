@@ -41,83 +41,88 @@
       const chartW = width / nCols;
       const chartH = 200;
 
-      // Draw Overview: One small chart per category
       function drawOverview() {
-            svg.selectAll("*").remove();
-            d3.select(".back-button").style("display", "none");
+  svg.selectAll("*").remove();
+  d3.select(".back-button").style("display", "none");
 
-            categories.forEach((cat, i) => {
-                const catData = data.filter(d => d.category === cat);
-                const col = i % nCols;
-                const row = Math.floor(i / nCols);
-                const x0 = col * chartW;
-                const y0 = row * chartH;
+  const globalMaxWidth = d3.max(data, d => d.width);
+  const globalMaxHeight = d3.max(data, d => d.height);
 
-                const innerWidth = chartW - 50;
-                const innerHeight = chartH - 40;
+  const margin = { top: 20, right: 10, bottom: 30, left: 40 };
+  const plotWidth = chartW - margin.left - margin.right;
+  const plotHeight = chartH - margin.top - margin.bottom;
 
-                const xScale = d3.scaleLinear()
-                .domain([0, d3.max(catData, d => d.width)])
-                .range([0, innerWidth]);
+  categories.forEach((cat, i) => {
+    const catData = data.filter(d => d.category === cat);
+    const col = i % nCols;
+    const row = Math.floor(i / nCols);
+    const x0 = col * chartW;
+    const y0 = row * chartH;
 
-                const yScale = d3.scaleLinear()
-                .domain([0, d3.max(catData, d => d.height)])
-                .range([innerHeight, 0]);
+    const xScale = d3.scaleLinear()
+      .domain([0, globalMaxWidth])
+      .range([0, plotWidth]);
 
-                const group = svg.append("g")
-                .attr("transform", `translate(${x0 + 40}, ${y0 + 20})`)
-                .attr("class", "category-chart")
-                .on("click", () => zoomIntoCategory(cat));
+    const yScale = d3.scaleLinear()
+      .domain([0, globalMaxHeight])
+      .range([plotHeight, 0]);
 
-                group.append("text")
-                .text(cat)
-                .attr("x", 0)
-                .attr("y", -5)
-                .style("font-weight", "bold");
+    const group = svg.append("g")
+      .attr("transform", `translate(${x0 + margin.left}, ${y0 + margin.top})`)
+      .attr("class", "category-chart")
+      .on("click", () => zoomIntoCategory(cat));
 
-                // Axes
-                const xAxis = d3.axisBottom(xScale).ticks(3);
-                const yAxis = d3.axisLeft(yScale).ticks(3);
+    group.append("text")
+      .text(cat)
+      .attr("x", 0)
+      .attr("y", -8)
+      .style("font-weight", "bold")
+      .style("font-size", "12px");
 
-                group.append("g")
-                .attr("transform", `translate(0, ${innerHeight})`)
-                .call(xAxis)
-                .append("text")
-                .attr("x", innerWidth / 2)
-                .attr("y", 25)
-                .attr("fill", "black")
-                .style("font-size", "10px")
-                .text("Width (cm)");
+    // Axes
+    const xAxis = d3.axisBottom(xScale).ticks(3);
+    const yAxis = d3.axisLeft(yScale).ticks(3);
 
-                group.append("g")
-                .call(yAxis)
-                .append("text")
-                .attr("transform", "rotate(-90)")
-                .attr("x", -innerHeight / 2)
-                .attr("y", -30)
-                .attr("dy", ".71em")
-                .attr("fill", "black")
-                .style("font-size", "10px")
-                .style("text-anchor", "middle")
-                .text("Height (cm)");
+    group.append("g")
+      .attr("transform", `translate(0, ${plotHeight})`)
+      .call(xAxis)
+      .append("text")
+      .attr("x", plotWidth / 2)
+      .attr("y", 24)
+      .attr("fill", "black")
+      .style("font-size", "10px")
+      .text("Width (cm)");
 
-                // Furniture rectangles
-                group.selectAll("rect")
-                .data(catData)
-                .enter()
-                .append("rect")
-                .attr("x", d => xScale(0))
-                .attr("y", d => yScale(d.height))
-                .attr("width", d => xScale(d.width) - xScale(0))
-                .attr("height", d => innerHeight - yScale(d.height))
-                .attr("fill", "#ffcc00")
-                .attr("stroke", "#003399")
-                .attr("stroke-width", 1)
-                .attr("opacity", 0.6)
-                .append("title")
-                .text(d => `${d.name} (${d.width}x${d.height} cm)`);
-            });
-        }
+    group.append("g")
+      .call(yAxis)
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -plotHeight / 2)
+      .attr("y", -30)
+      .attr("dy", ".71em")
+      .attr("fill", "black")
+      .style("font-size", "10px")
+      .style("text-anchor", "middle")
+      .text("Height (cm)");
+
+    // Furniture rectangles
+    group.selectAll("rect")
+      .data(catData)
+      .enter()
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", d => yScale(d.height))
+      .attr("width", d => xScale(d.width))
+      .attr("height", d => plotHeight - yScale(d.height))
+      .attr("fill", "#ffcc00")
+      .attr("stroke", "#003399")
+      .attr("stroke-width", 2)
+      .attr("fill-opacity", 0.2)
+      .attr("stroke-opacity", 1)  
+      .append("title")
+      .text(d => `${d.name} (${d.width}x${d.height} cm)`);
+  });
+}
 
 
       // Zoom into one category with size-responsive layout

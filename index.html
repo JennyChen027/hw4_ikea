@@ -1,50 +1,186 @@
 <!--Data Science Learning Community (2024). Tidy Tuesday: A weekly social data project. https://tidytues.day-->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Ikea Dimensions</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <!-- Data Visualization library -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- topojason graphs -->
-    <script src="https://d3js.org/topojson.v3.min.js"></script>
-    <style>
-        body {
-            /* background-color: black;
-            color: white; */
-            font-family: "Cousine", monospace;
-            /* display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            width: 80%;
-            height: auto;
-            margin: auto; */
-        }
-
-        text, label {
-            font-family: "Cousine", monospace;
-        }
-
-        h1 {
-            font-family: "Instrument Serif", serif;
-            /* font-style: normal;
-            text-align: center;
-            font-size: 30px;
-            margin: 20px 0; */
-        }
-
-        h2, h3 {
-            font-family: "Instrument Serif", serif;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>IKEA Furniture Rectangles</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    .category-chart {
+      cursor: pointer;
+    }
+    .back-button {
+      display: none;
+      margin: 1em;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
-    <h1>
-        Hello World Hw4
-    </h1>
+  <h2>IKEA Furniture Overview</h2>
+  <button class="back-button">← Back to Overview</button>
+  <svg width="1200" height="800"></svg>
+
+  <script>
+    const svg = d3.select("svg");
+    const width = +svg.attr("width");
+    const height = +svg.attr("height");
+
+    d3.csv("dataset/ikea.csv").then(data => {
+      data = data.filter(d => d.width && d.height && d.category);
+      data.forEach(d => {
+        d.width = +d.width;
+        d.height = +d.height;
+      });
+
+      const categories = Array.from(new Set(data.map(d => d.category)));
+      const nCols = 4;
+      const chartW = width / nCols;
+      const chartH = 200;
+
+      // Draw Overview: One small chart per category
+      function drawOverview() {
+            svg.selectAll("*").remove();
+            d3.select(".back-button").style("display", "none");
+
+            categories.forEach((cat, i) => {
+                const catData = data.filter(d => d.category === cat);
+                const col = i % nCols;
+                const row = Math.floor(i / nCols);
+                const x0 = col * chartW;
+                const y0 = row * chartH;
+
+                const innerWidth = chartW - 50;
+                const innerHeight = chartH - 40;
+
+                const xScale = d3.scaleLinear()
+                .domain([0, d3.max(catData, d => d.width)])
+                .range([0, innerWidth]);
+
+                const yScale = d3.scaleLinear()
+                .domain([0, d3.max(catData, d => d.height)])
+                .range([innerHeight, 0]);
+
+                const group = svg.append("g")
+                .attr("transform", `translate(${x0 + 40}, ${y0 + 20})`)
+                .attr("class", "category-chart")
+                .on("click", () => zoomIntoCategory(cat));
+
+                group.append("text")
+                .text(cat)
+                .attr("x", 0)
+                .attr("y", -5)
+                .style("font-weight", "bold");
+
+                // Axes
+                const xAxis = d3.axisBottom(xScale).ticks(3);
+                const yAxis = d3.axisLeft(yScale).ticks(3);
+
+                group.append("g")
+                .attr("transform", `translate(0, ${innerHeight})`)
+                .call(xAxis)
+                .append("text")
+                .attr("x", innerWidth / 2)
+                .attr("y", 25)
+                .attr("fill", "black")
+                .style("font-size", "10px")
+                .text("Width (cm)");
+
+                group.append("g")
+                .call(yAxis)
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -30)
+                .attr("dy", ".71em")
+                .attr("fill", "black")
+                .style("font-size", "10px")
+                .style("text-anchor", "middle")
+                .text("Height (cm)");
+
+                // Furniture rectangles
+                group.selectAll("rect")
+                .data(catData)
+                .enter()
+                .append("rect")
+                .attr("x", d => xScale(0))
+                .attr("y", d => yScale(d.height))
+                .attr("width", d => xScale(d.width) - xScale(0))
+                .attr("height", d => innerHeight - yScale(d.height))
+                .attr("fill", "#ffcc00")
+                .attr("stroke", "#003399")
+                .attr("stroke-width", 1)
+                .attr("opacity", 0.6)
+                .append("title")
+                .text(d => `${d.name} (${d.width}x${d.height} cm)`);
+            });
+        }
+
+
+      // Zoom into one category with size-responsive layout
+      function zoomIntoCategory(cat) {
+        svg.selectAll("*").remove();
+        d3.select(".back-button").style("display", "inline");
+
+        const catData = data.filter(d => d.category === cat);
+        const scale = 1.5; // pixel per cm
+        const padding = 10;
+
+        // Simple pack layout (row by row)
+        let x = 0, y = 0, rowHeight = 0;
+        catData.forEach(d => {
+          d.drawWidth = d.width * scale;
+          d.drawHeight = d.height * scale;
+
+          if (x + d.drawWidth > width) {
+            x = 0;
+            y += rowHeight + padding;
+            rowHeight = 0;
+          }
+          d.x = x;
+          d.y = y;
+
+          x += d.drawWidth + padding;
+          rowHeight = Math.max(rowHeight, d.drawHeight);
+        });
+
+        const group = svg.append("g");
+
+        group.selectAll("rect")
+          .data(catData)
+          .enter()
+          .append("rect")
+          .attr("x", d => d.x)
+          .attr("y", d => d.y)
+          .attr("width", d => d.drawWidth)
+          .attr("height", d => d.drawHeight)
+          .attr("fill", "#ffcc00")
+          .attr("stroke", "#003399")
+          .attr("stroke-width", 1)
+          .attr("opacity", 0.6)
+          .append("title")
+          .text(d => `${d.name} (${d.width}x${d.height} cm)`);
+
+        group.selectAll("text")
+          .data(catData)
+          .enter()
+          .append("text")
+          .attr("x", d => d.x + 4)
+          .attr("y", d => d.y + 14)
+          .text(d => d.name.slice(0, 10))
+          .attr("font-size", "10px")
+          .attr("fill", "#003399");
+      }
+
+      d3.select(".back-button").on("click", () => {
+        drawOverview();
+      });
+
+      drawOverview();
+    });
+  </script>
 </body>
 </html>

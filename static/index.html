@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>IKEA Furniture Rectangles</title>
+  <title>IKEA Furniture</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
@@ -12,7 +12,7 @@
     .category-chart {
       cursor: pointer;
     }
-    .back-button {
+    .Back {
       display: none;
       margin: 1em;
       font-size: 16px;
@@ -20,172 +20,249 @@
   </style>
 </head>
 <body>
-  <h2>IKEA Furniture Overview</h2>
-  <button class="back-button">← Back to Overview</button>
-  <svg width="1200" height="800"></svg>
+  <button class="Back">← Back to Overview</button>
+  <h2 id="page-title">IKEA Furniture Overview</h2>
+  <button class="Back">← Back to Overview</button>
+  <svg width="1200" height="850"></svg>
+  <div id="tooltip" style="position: absolute; pointer-events: none; display: none; background: white; border: 1px solid #ccc; padding: 10px; font-size: 13px; max-width: 250px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); border-radius: 4px;"></div>
+
 
   <script>
-    const svg = d3.select("svg");
-    const width = +svg.attr("width");
-    const height = +svg.attr("height");
+  const svg = d3.select("svg");
+  const width = +svg.attr("width");
+  const height = +svg.attr("height");
 
-    d3.csv("dataset/ikea.csv").then(data => {
-      data = data.filter(d => d.width && d.height && d.category);
-      data.forEach(d => {
-        d.width = +d.width;
-        d.height = +d.height;
-      });
+  const loadData = async() => {
 
-      const categories = Array.from(new Set(data.map(d => d.category)));
-      const nCols = 4;
-      const chartW = width / nCols;
-      const chartH = 200;
+    data = await d3.csv("dataset/ikea_img.csv")
+    data = data.filter(d => d.width && d.height && d.category);
 
-      function drawOverview() {
-  svg.selectAll("*").remove();
-  d3.select(".back-button").style("display", "none");
+    data.forEach(d => {
+      d.width = +d.width;
+      d.height = +d.height;
+    });
 
-  const globalMaxWidth = d3.max(data, d => d.width);
-  const globalMaxHeight = d3.max(data, d => d.height);
+    const categories = Array.from(new Set(data.map(d => d.category)))
+                        .filter(cat => cat !== "Café furniture");
+    const nCols = 4;
+    const chartOffsetX = 20; // Leave space for left Y-axis label
+    const chartOffsetY = 10; // Optional padding from top
+    const chartW = (width - chartOffsetX - 10) / nCols;
+    const chartH = 200;
 
-  const margin = { top: 20, right: 10, bottom: 30, left: 40 };
-  const plotWidth = chartW - margin.left - margin.right;
-  const plotHeight = chartH - margin.top - margin.bottom;
+    function drawOverview() {
+      svg.selectAll("*").remove();
+      const chartGroup = svg.append("g").attr("id", "charts")
+        .attr("transform", `translate(${chartOffsetX}, ${chartOffsetY})`);
 
-  categories.forEach((cat, i) => {
-    const catData = data.filter(d => d.category === cat);
-    const col = i % nCols;
-    const row = Math.floor(i / nCols);
-    const x0 = col * chartW;
-    const y0 = row * chartH;
+      d3.selectAll(".Back").style("display", "none");
 
-    const xScale = d3.scaleLinear()
-      .domain([0, globalMaxWidth])
-      .range([0, plotWidth]);
+      const globalMaxWidth = d3.max(data, d => d.width);
+      const globalMaxHeight = d3.max(data, d => d.height);
 
-    const yScale = d3.scaleLinear()
-      .domain([0, globalMaxHeight])
-      .range([plotHeight, 0]);
+      const margin = { top: 20, right: 10, bottom: 30, left: 40 };
+      const plotWidth = chartW - margin.left - margin.right;
+      const plotHeight = chartH - margin.top - margin.bottom;
 
-    const group = svg.append("g")
-      .attr("transform", `translate(${x0 + margin.left}, ${y0 + margin.top})`)
-      .attr("class", "category-chart")
-      .on("click", () => zoomIntoCategory(cat));
-
-    group.append("text")
-      .text(cat)
-      .attr("x", 0)
-      .attr("y", -8)
-      .style("font-weight", "bold")
-      .style("font-size", "12px");
-
-    // Axes
-    const xAxis = d3.axisBottom(xScale).ticks(3);
-    const yAxis = d3.axisLeft(yScale).ticks(3);
-
-    group.append("g")
-      .attr("transform", `translate(0, ${plotHeight})`)
-      .call(xAxis)
-      .append("text")
-      .attr("x", plotWidth / 2)
-      .attr("y", 24)
-      .attr("fill", "black")
-      .style("font-size", "10px")
-      .text("Width (cm)");
-
-    group.append("g")
-      .call(yAxis)
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -plotHeight / 2)
-      .attr("y", -30)
-      .attr("dy", ".71em")
-      .attr("fill", "black")
-      .style("font-size", "10px")
-      .style("text-anchor", "middle")
-      .text("Height (cm)");
-
-    // Furniture rectangles
-    group.selectAll("rect")
-      .data(catData)
-      .enter()
-      .append("rect")
-      .attr("x", 0)
-      .attr("y", d => yScale(d.height))
-      .attr("width", d => xScale(d.width))
-      .attr("height", d => plotHeight - yScale(d.height))
-      .attr("fill", "#ffcc00")
-      .attr("stroke", "#003399")
-      .attr("stroke-width", 2)
-      .attr("fill-opacity", 0.2)
-      .attr("stroke-opacity", 1)  
-      .append("title")
-      .text(d => `${d.name} (${d.width}x${d.height} cm)`);
-  });
-}
-
-
-      // Zoom into one category with size-responsive layout
-      function zoomIntoCategory(cat) {
-        svg.selectAll("*").remove();
-        d3.select(".back-button").style("display", "inline");
-
+      categories.forEach((cat, i) => {
         const catData = data.filter(d => d.category === cat);
-        const scale = 1.5; // pixel per cm
-        const padding = 10;
+        const col = i % nCols;
+        const row = Math.floor(i / nCols);
+        const x0 = col * chartW;
+        const y0 = row * chartH;
 
-        // Simple pack layout (row by row)
-        let x = 0, y = 0, rowHeight = 0;
-        catData.forEach(d => {
-          d.drawWidth = d.width * scale;
-          d.drawHeight = d.height * scale;
+        const xScale = d3.scaleLinear()
+          .domain([0, globalMaxWidth])
+          .range([0, plotWidth]);
 
-          if (x + d.drawWidth > width) {
-            x = 0;
-            y += rowHeight + padding;
-            rowHeight = 0;
-          }
-          d.x = x;
-          d.y = y;
+        const yScale = d3.scaleLinear()
+          .domain([0, globalMaxHeight])
+          .range([plotHeight, 0]);
 
-          x += d.drawWidth + padding;
-          rowHeight = Math.max(rowHeight, d.drawHeight);
-        });
+        const group = chartGroup.append("g")
+        .attr("transform", `translate(${x0 + margin.left}, ${y0 + margin.top})`)
+        .attr("class", "category-chart")
+          .on("click", () => zoomIntoCategory(cat));
 
-        const group = svg.append("g");
+        group.append("text")
+          .text(cat)
+          .attr("x", 0)
+          .attr("y", -8)
+          .style("font-weight", "bold")
+          .style("font-size", "12px");
 
+        // Axes
+        const xAxis = d3.axisBottom(xScale).ticks(3);
+        const yAxis = d3.axisLeft(yScale).ticks(3);
+
+        group.append("g")
+          .attr("transform", `translate(0, ${plotHeight})`)
+          .call(xAxis)
+          .append("text")
+          .attr("x", plotWidth / 2)
+          .attr("y", 24)
+          .attr("fill", "black")
+          .style("font-size", "10px")
+
+        group.append("g")
+          .call(yAxis)
+          .append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -plotHeight / 2)
+          .attr("y", -30)
+          .attr("dy", ".71em")
+          .attr("fill", "black")
+          .style("font-size", "10px")
+          .style("text-anchor", "middle")
+
+        // Furniture rectangles
         group.selectAll("rect")
           .data(catData)
           .enter()
           .append("rect")
-          .attr("x", d => d.x)
-          .attr("y", d => d.y)
-          .attr("width", d => d.drawWidth)
-          .attr("height", d => d.drawHeight)
+          .attr("x", 0)
+          .attr("y", d => yScale(d.height))
+          .attr("width", d => xScale(d.width))
+          .attr("height", d => plotHeight - yScale(d.height))
           .attr("fill", "#ffcc00")
           .attr("stroke", "#003399")
-          .attr("stroke-width", 1)
-          .attr("opacity", 0.6)
+          .attr("stroke-width", 2)
+          .attr("fill-opacity", 0.2)
+          .attr("stroke-opacity", 1)  
           .append("title")
           .text(d => `${d.name} (${d.width}x${d.height} cm)`);
+      });
 
+      drawGlobalAxisLabels();
+    };
+
+    function drawGlobalAxisLabels() {
+      const axisGroup = svg.append("g").attr("id", "global-axis");
+
+      // Y-axis label (left, vertical)
+      axisGroup.append("text")
+        .attr("class", "global-axis-label")
+        .attr("transform", `rotate(-90)`)
+        .attr("x", -height / 2)
+        .attr("y", 15)
+        .attr("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("Height (cm)");
+
+      // X-axis label (bottom center)
+      axisGroup.append("text")
+        .attr("class", "global-axis-label")
+        .attr("x", width / 2)
+        .attr("y", height - 25)
+        .attr("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("Width (cm)");
+    }
+
+      // when user clicks on a graph
+    function zoomIntoCategory(cat) {
+      svg.selectAll("*").remove();
+      d3.selectAll(".Back").style("display", "inline");
+      d3.select("#page-title").text(`IKEA Furniture – ${cat}`);
+
+      const catData = data.filter(d => d.category === cat);
+      catData.sort((a, b) => (b.width * b.height) - (a.width * a.height)); // sort by area! 
+      const padding = 10;
+      const catalogOffsetX = 20;
+      const catalogOffsetY = 20;
+
+      // calculate the catalog like layout 
+      let x = 0, y = 0, rowHeight = 0;
+      catData.forEach(d => {
+        d.drawWidth = d.width;
+        d.drawHeight = d.height;
+
+        if (x + d.drawWidth > width) {
+          x = 0;
+          y += rowHeight + padding;
+          rowHeight = 0;
+        }
+        d.x = x + catalogOffsetX;
+        d.y = y + catalogOffsetY;
+
+        x += d.drawWidth + padding;
+        rowHeight = Math.max(rowHeight, d.drawHeight);
+      });
+
+      let maxY = y + rowHeight + catalogOffsetY;
+      svg.attr("height", maxY + 40);
+
+
+      const group = svg.append("g");
+
+      group.selectAll("rect")
+        .data(catData)
+        .enter()
+        .append("rect")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y)
+        .attr("width", d => d.drawWidth)
+        .attr("height", d => d.drawHeight)
+        .attr("fill", "#ffcc00")
+        .attr("stroke", "#003399")
+        .attr("stroke-width", 2)
+        .attr("opacity", 0.8)
+        .on("mouseover", (event, d) => {
+          const tooltip = d3.select("#tooltip");
+          tooltip
+            .style("display", "block")
+            .html(`
+              <strong>${d.name}</strong><br>
+              Price: ${d.price} SAR<br>
+              Designer: ${d.designer || "N/A"}<br>
+              Size: ${d.width} × ${d.height} × ${d.depth} cm<br>
+              <p style="margin: 5px 0;">${d.short_description || ""}</p>
+              ${d.image_url ? `<img src="${d.image_url}" alt="${d.name}" width="100%" style="margin-top: 5px; border-radius: 4px;">` : ""}
+            `);
+        })
+        .on("mousemove", (event) => {
+          d3.select("#tooltip")
+            .style("left", (event.pageX + 15) + "px")
+            .style("top", (event.pageY + 15) + "px");
+        })
+        .on("mouseout", () => {
+          d3.select("#tooltip").style("display", "none");
+        });
+
+        // logic for furniture label
         group.selectAll("text")
           .data(catData)
           .enter()
           .append("text")
           .attr("x", d => d.x + 4)
           .attr("y", d => d.y + 14)
-          .text(d => d.name.slice(0, 10))
+          .filter(d => d.drawWidth > 35 && d.drawHeight > 20) // only if big enough for four letters so 35cm wide and 20cm height
+          .text(d => {
+            if (d.width < 65) {                               // if width is less than 65, should auto to four letters
+              return d.name.slice(0, 4) + "…";
+            } else {
+              const charCount = Math.floor(d.drawWidth / 7);  // else give me cut version if name is too long
+              return d.name.length > charCount
+                ? d.name.slice(0, Math.max(1, charCount - 1)) + "…"
+                : d.name;
+            }
+          })
           .attr("font-size", "10px")
           .attr("fill", "#003399");
-      }
 
-      d3.select(".back-button").on("click", () => {
-        drawOverview();
-      });
+    }
 
+    // when user goes back it shoud reset svg height, scroll up, and also revert title
+    d3.selectAll(".Back").on("click", () => {
+      svg.attr("height", 850); 
+      window.scrollTo({ top: 0, behavior: "smooth" }); 
+      d3.select("#page-title").text("IKEA Furniture Overview");
       drawOverview();
     });
+
+    drawOverview();
+  };
+  loadData();
   </script>
 </body>
 </html>

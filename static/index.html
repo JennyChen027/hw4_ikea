@@ -16,15 +16,55 @@
       display: none;
       margin: 1em;
       font-size: 16px;
+    } #tooltip {
+      position: absolute; 
+      pointer-events: none; 
+      display: none; 
+      background: white; 
+      border: 1px solid #ccc; 
+      padding: 10px; 
+      font-size: 13px; 
+      max-width: 250px; 
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2); 
+      border-radius: 4px;
+    } .slider-hidden input[type="range"] {
+      display: none !important;
+    } .range {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    } #slider-controls {
+      margin: 1em 0;
+      display: flex; 
+      gap: 2em; 
+      align-items: center;
     }
+
+
   </style>
 </head>
 <body>
   <button class="Back">← Back to Overview</button>
   <h2 id="page-title">IKEA Furniture Overview</h2>
-  <button class="Back">← Back to Overview</button>
+  <div id="slider-controls" >
+    <label class="range">Maximum Width (cm): 
+      <input type="range" id="max-width" min="0" value="300" step="1">
+      <span id="width-range-label"></span>
+    </label>
+    <br>
+    <label class="range">Maximum Height: 
+      <input type="range" id="max-height" min="0"  value="300" step="1">
+      <span id="height-range-label"></span>
+    </label>
+  </div>
+  
+  
   <svg width="1200" height="850"></svg>
-  <div id="tooltip" style="position: absolute; pointer-events: none; display: none; background: white; border: 1px solid #ccc; padding: 10px; font-size: 13px; max-width: 250px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); border-radius: 4px;"></div>
+  <div style="text-align: left; margin-top: 1em;">
+    <button class="Back">← Back to Overview</button>
+  </div>
+  
+  <div id="tooltip" style=></div>
 
 
   <script>
@@ -50,6 +90,38 @@
     const chartW = (width - chartOffsetX - 10) / nCols;
     const chartH = 200;
 
+    const globalMaxWidth = d3.max(data, d => d.width);
+    const globalMaxHeight = d3.max(data, d => d.height);
+
+    // start of filter by height and width
+
+
+    let filter = {
+      maxWidth: globalMaxWidth,
+      maxHeight: globalMaxHeight
+    };
+
+    // Set slider attributes dynamically
+    document.getElementById("max-width").max = globalMaxWidth;
+    document.getElementById("max-width").value = globalMaxWidth;
+    document.getElementById("width-range-label").textContent = `${globalMaxWidth} cm`;
+
+    document.getElementById("max-height").max = globalMaxHeight;
+    document.getElementById("max-height").value = globalMaxHeight;
+    document.getElementById("height-range-label").textContent = `${globalMaxHeight} cm`;
+
+
+    function updateFilterFromSliders() {
+      filter.maxWidth = +document.getElementById("max-width").value;
+      filter.maxHeight = +document.getElementById("max-height").value;
+
+      document.getElementById("width-range-label").textContent = `${filter.maxWidth} cm`;
+      document.getElementById("height-range-label").textContent = `${filter.maxHeight} cm`;
+
+      drawOverview(); 
+    }
+
+    // draw the 16 graphs for overview
     function drawOverview() {
       svg.selectAll("*").remove();
       const chartGroup = svg.append("g").attr("id", "charts")
@@ -57,15 +129,17 @@
 
       d3.selectAll(".Back").style("display", "none");
 
-      const globalMaxWidth = d3.max(data, d => d.width);
-      const globalMaxHeight = d3.max(data, d => d.height);
-
       const margin = { top: 20, right: 10, bottom: 30, left: 40 };
       const plotWidth = chartW - margin.left - margin.right;
       const plotHeight = chartH - margin.top - margin.bottom;
 
       categories.forEach((cat, i) => {
-        const catData = data.filter(d => d.category === cat);
+        const catData = data.filter(d =>
+          d.category === cat &&
+          d.width <= filter.maxWidth && d.height <= filter.maxHeight
+        );
+        
+        // calculate the amt of space between graphs
         const col = i % nCols;
         const row = Math.floor(i / nCols);
         const x0 = col * chartW;
@@ -91,7 +165,6 @@
           .style("font-weight", "bold")
           .style("font-size", "12px");
 
-        // Axes
         const xAxis = d3.axisBottom(xScale).ticks(3);
         const yAxis = d3.axisLeft(yScale).ticks(3);
 
@@ -139,7 +212,7 @@
     function drawGlobalAxisLabels() {
       const axisGroup = svg.append("g").attr("id", "global-axis");
 
-      // Y-axis label (left, vertical)
+      // yaxis
       axisGroup.append("text")
         .attr("class", "global-axis-label")
         .attr("transform", `rotate(-90)`)
@@ -149,7 +222,7 @@
         .style("font-size", "14px")
         .text("Height (cm)");
 
-      // X-axis label (bottom center)
+      // xaxis
       axisGroup.append("text")
         .attr("class", "global-axis-label")
         .attr("x", width / 2)
@@ -164,8 +237,12 @@
       svg.selectAll("*").remove();
       d3.selectAll(".Back").style("display", "inline");
       d3.select("#page-title").text(`IKEA Furniture – ${cat}`);
+      d3.select("#slider-controls").classed("slider-hidden", true);
 
-      const catData = data.filter(d => d.category === cat);
+      const catData = data.filter(d =>
+        d.category === cat &&
+        d.width <= filter.maxWidth && d.height <= filter.maxHeight
+      );
       catData.sort((a, b) => (b.width * b.height) - (a.width * a.height)); // sort by area! 
       const padding = 10;
       const catalogOffsetX = 20;
@@ -207,7 +284,7 @@
         .attr("stroke", "#003399")
         .attr("stroke-width", 2)
         .attr("opacity", 0.8)
-        .on("mouseover", (event, d) => {
+        .on("mouseover", (event, d) => {         // user hover over to see the item
           const tooltip = d3.select("#tooltip");
           tooltip
             .style("display", "block")
@@ -215,16 +292,43 @@
               <strong>${d.name}</strong><br>
               Price: ${d.price} SAR<br>
               Designer: ${d.designer || "N/A"}<br>
-              Size: ${d.width} × ${d.height} × ${d.depth} cm<br>
+              Size: ${d.width} x ${d.height} x ${d.depth} cm<br>
               <p style="margin: 5px 0;">${d.short_description || ""}</p>
               ${d.image_url ? `<img src="${d.image_url}" alt="${d.name}" width="100%" style="margin-top: 5px; border-radius: 4px;">` : ""}
             `);
         })
         .on("mousemove", (event) => {
-          d3.select("#tooltip")
-            .style("left", (event.pageX + 15) + "px")
-            .style("top", (event.pageY + 15) + "px");
-        })
+          // tooltip functionality ASSISTED BY AI SYSTEM -- ChatGPT
+          const tooltip = d3.select("#tooltip");
+          const tooltipNode = tooltip.node();
+
+          const tooltipWidth = tooltipNode.offsetWidth;
+          const tooltipHeight = tooltipNode.offsetHeight;
+
+          // get cursor position
+          const windowWidth = window.innerWidth;
+          const windowHeight = window.innerHeight;
+
+          const mouseX = event.pageX;
+          const mouseY = event.pageY;
+
+          let left = mouseX + 15;
+          let top = mouseY + 15;
+
+          // if too right, move left
+          if (left + tooltipWidth > windowWidth) {
+            left = mouseX - tooltipWidth - 15;
+          }
+
+          // if too down, move up
+          if (top + tooltipHeight > windowHeight) {
+            top = mouseY - tooltipHeight - 15;
+          }
+
+          tooltip
+            .style("left", left + "px")
+            .style("top", top + "px");
+          })
         .on("mouseout", () => {
           d3.select("#tooltip").style("display", "none");
         });
@@ -257,11 +361,16 @@
       svg.attr("height", 850); 
       window.scrollTo({ top: 0, behavior: "smooth" }); 
       d3.select("#page-title").text("IKEA Furniture Overview");
+      d3.select("#slider-controls").classed("slider-hidden", false);
       drawOverview();
     });
 
     drawOverview();
-  };
+
+    document.querySelectorAll("#max-width, #max-height")
+      .forEach(el => el.addEventListener("input", updateFilterFromSliders));
+
+    };
   loadData();
   </script>
 </body>

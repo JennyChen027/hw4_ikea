@@ -358,7 +358,7 @@
         d.drawWidth = d.width;
         d.drawHeight = d.height;
 
-        if (x + d.drawWidth > width) {
+        if (x + d.drawWidth + padding > width - catalogOffsetX) {
           x = 0;
           y += rowHeight + padding;
           rowHeight = 0;

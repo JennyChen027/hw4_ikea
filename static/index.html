@@ -39,6 +39,18 @@
       gap: 2em; 
       align-items: center;
     }
+    .category-chart:hover {
+    background-color: rgba(0, 51, 153, 0.05); 
+    transition: background-color 0.3s ease;
+    }
+    .chart-background:hover {
+      fill: rgba(0, 51, 153, 0.05); /* Matches IKEA blue */
+      cursor: pointer;
+    }
+    .chart-background {
+    transition: fill 0.3s ease;
+    }
+
 
 
   </style>
@@ -157,6 +169,15 @@
         .attr("transform", `translate(${x0 + margin.left}, ${y0 + margin.top})`)
         .attr("class", "category-chart")
           .on("click", () => zoomIntoCategory(cat));
+
+        // Add background rectangle for hover effect to look more clickable
+        group.append("rect")
+          .attr("x", -margin.left)
+          .attr("y", -margin.top)
+          .attr("width", chartW)
+          .attr("height", chartH)
+          .attr("fill", "transparent")
+          .attr("class", "chart-background");
 
         group.append("text")
           .text(cat)
